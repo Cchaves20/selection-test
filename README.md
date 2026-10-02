@@ -2,6 +2,8 @@
 
 Projeto base para avaliação de candidato a estágio. A API REST está pronta e o backend Kotlin inclui Netflix DGS e um cliente REST. **Não há schemas, queries ou resolvers GraphQL implementados.**
 
+O enunciado do desafio esta na pasta docs deste repositório.
+
 ## Executar localmente
 
 Requisitos: Python 3.10+ e JDK 17 ou superior. O Gradle Wrapper baixa o Gradle e as dependências na primeira execução.
