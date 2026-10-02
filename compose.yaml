@@ -1,0 +1,13 @@
+services:
+  rest-api:
+    build: ./rest-api
+    ports:
+      - "8000:8000"
+  graphql-backend:
+    build: ./graphql-backend
+    ports:
+      - "8080:8080"
+    environment:
+      REST_API_BASE_URL: http://rest-api:8000
+    depends_on:
+      - rest-api

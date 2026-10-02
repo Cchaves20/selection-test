@@ -1,0 +1,4 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "kotlin.compiler.jvm.target": "17"
+}
