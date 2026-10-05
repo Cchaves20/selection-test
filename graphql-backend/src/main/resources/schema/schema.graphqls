@@ -1,0 +1,27 @@
+type Query {
+  """
+  Retorna uma página das fotos de uma plataforma.
+  As fotos vêm ordenadas por módulo e, dentro dele, por foto.
+  """
+  platformPhotos(
+    platformId: ID!
+    offset: Int! = 0
+    limit: Int! = 50
+  ): PlatformPhotoPage!
+}
+
+"""Uma página de fotos, com os dados para pedir a próxima."""
+type PlatformPhotoPage {
+  items: [Photo!]!
+  total: Int!
+  offset: Int!
+  limit: Int!
+  hasNextPage: Boolean!
+}
+
+type Photo {
+  id: ID!
+  moduleId: ID!
+  name: String!
+  url: String!
+}

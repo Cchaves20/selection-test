@@ -85,3 +85,89 @@ cd graphql-backend
 O cliente Kotlin expõe `platforms()`, `modules(platformId)` e `photos(moduleId, offset, limit)`. Respostas REST de erro geram exceções do Spring; cabe ao candidato definir o tratamento na camada GraphQL.
 
 As versões foram fixadas para tornar o exercício reproduzível: Spring Boot 3.5.3, Kotlin 2.2.20, DGS 10.2.1 e Gradle 8.14.3. Referência: [documentação oficial do DGS](https://netflix.github.io/dgs/).
+
+## Solução implementada
+
+### Query GraphQL
+
+```graphql
+{
+  platformPhotos(platformId: 1, offset: 1990, limit: 30) {
+    items { id moduleId name url }
+    total
+    offset
+    limit
+    hasNextPage
+  }
+}
+```
+
+| Argumento | Tipo | Padrão | Regra |
+|---|---|---|---|
+| `platformId` | `ID!` | — | obrigatório, numérico |
+| `offset` | `Int!` | 0 | >= 0 |
+| `limit` | `Int!` | 50 | entre 1 e 200 |
+
+As fotos vêm ordenadas por ID do módulo e, dentro dele, por ID da foto. Um offset além do total retorna `items: []` e `hasNextPage: false`.
+
+### Como testar manualmente
+
+1. Suba a REST e o backend (seção "Executar localmente").
+2. Abra http://localhost:8080/graphiql e execute a query acima.
+
+### Como funciona a paginação global
+
+1. Valida `offset` e `limit`. Se forem inválidos, retorna erro **sem chamar a REST**.
+2. Busca os módulos da plataforma (`GET /platforms/{id}/modules`). Essa chamada também confirma que a plataforma existe.
+3. Calcula o módulo inicial pela **posição** na lista (`offset / 2000`) e o offset dentro dele (`offset % 2000`).
+4. Busca nesse módulo só as fotos necessárias. Se a página atravessar a fronteira, continua no módulo seguinte a partir do 0.
+5. Para quando completa o limite ou quando acabam os módulos.
+
+**Chamadas REST por consulta:**
+
+| Caso | Chamadas |
+|---|---|
+| Parâmetros inválidos | 0 |
+| Offset além do total | 1 (módulos) |
+| Página dentro de um módulo | 2 |
+| Página atravessando a fronteira | 3 |
+
+Como o limite máximo (200) é menor que o tamanho de um módulo (2.000), uma página nunca atravessa mais de dois módulos.
+
+### Erros
+
+| Situação | `errorType` |
+|---|---|
+| `offset` negativo, `limit` fora de 1–200, `platformId` não numérico | `BAD_REQUEST` |
+| Plataforma inexistente (REST responde 404) | `NOT_FOUND` |
+| REST fora do ar, timeout ou erro 5xx | `UNAVAILABLE` |
+
+### Decisões
+
+- **2.000 fotos por módulo como constante.** O endpoint de módulos não informa a quantidade de fotos. Consultar os 40 módulos para descobrir isso custaria 40 chamadas por página. O contrato da REST garante exatamente 2.000 fotos por módulo, então o valor fica na constante `PHOTOS_PER_MODULE`.
+- **Posição na lista, não ID.** Os IDs de módulo são globais (a plataforma 2 começa no 41), então o cálculo usa a posição do módulo na lista retornada pela REST.
+- **Pasta do schema.** O DGS lê schemas de `src/main/resources/schema/`, por isso o arquivo foi colocado lá em vez da pasta `graphql/` que veio no projeto base.
+
+### Estrutura
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `schema/schema.graphqls` | Schema GraphQL |
+| `PlatformPhotosDataFetcher` | Resolver DGS; converte o `platformId` e delega ao serviço |
+| `PlatformPhotoService` | Validação e paginação global |
+| `PlatformPhotoPage` | Página retornada pela query |
+| `Exceptions` | Exceções de domínio |
+| `GraphQLExceptionHandler` | Converte as exceções em erros GraphQL tipados |
+
+### Testes
+
+```
+cd graphql-backend
+.\gradlew.bat test      # Windows
+./gradlew test          # Linux/macOS
+```
+
+- `PlatformPhotoServiceTest`: os casos do enunciado, a plataforma 2, a validação e os erros da REST. Usa um mock do `RestApiClient` e verifica **exatamente quais chamadas REST** foram feitas em cada caso.
+- `PlatformPhotosQueryTest`: executa a query pelo DGS e verifica os valores padrão e os tipos de erro.
+
+Relatório: `graphql-backend/build/reports/tests/test/index.html`.

@@ -23,6 +23,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("com.netflix.graphql.dgs:dgs-starter-test")
 }
 
 tasks.withType<Test> { useJUnitPlatform() }
